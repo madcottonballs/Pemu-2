@@ -1,0 +1,70 @@
+Nov 17 2023:
+    The date I believe work on the first implementation of Pemu began. Executable files were called .8ex, pasm files called .8asm
+Nov 19 2023:
+    By this point rough drafts of the .8asm language were created, much more flexibility than modern Pemu due to variable length instructions.
+    I could implement variable length instructions in modern Pemu, but frankly I just don't feel like it. Plus I like the challenge.
+    Plus shorter less detailed instructions can probably be executed quicker. Also the .8exe (the at-this-time equivalent of the old usage of .pemu files) were text representing binary, not actual binary.
+Dec 1 2023:
+    Sometime between the previous Nov 19 and Dec 1 I rewrote the entirety of Pemu and Pasm, giving them their new names. .pemu files became actual binary.
+    Pasm gained jmp, jit, and jif instructions. Around 17 instructions existed at this time. Also the numerical order of the opcodes show the order in which I added them (except for the first 3 I think).
+Dec 17 2023:
+    Information during this time period is sparse and really all I have is photos I took so that is why there is a 15 day gap between the last update and this one.
+    Many quality of life improvements were added to pasm. Work on the abandoned project phigh begun.
+Dec 21 2023:
+    Pemu Alpha was released running at ~200kHz.
+Dec 31 2023:
+    Pemu beta released seconds before new year
+Jan 1-4 2024:
+    Few instructions added, increasing optimizations
+Jan 5 2024:
+    Pinter and Phigh ideas scraped, work on Plow (pronounced pl-O) begins
+Jan 6 2024:
+    ~65% of Plow complete, if statements working
+Jan 7 2024:
+    Plow complete aside from branching. Ready for Plow beta release.
+Jan 14 2024:
+    Work on new language Peak starts, biggest project in the series.
+    Features of this new language will include Variables, Strings, Chars, Vectors, Lists, Pointers, etc. 
+    Many optimizations and bug fixes on existing code has been introduced. Some of it like the Intger and Pointer Types
+    are done as of me writing this, I plan on adding chars and then strings next. Vectors for the type after that (simpler than lists)
+    and then Lists. I plan on Vectors being fixed-sized arrays and Lists being forward-only linked lists. Maybe I should add a ptr to the end node to the metadata of Lists for easy appending?
+    I'm slightly worrying about the speed costs, considering a simple addition (unoptimized as of current writing) produces ~20 Plow instructions, surely making at least ~40 Pasm instructions, and ~50 Pemu lines.
+    After optimization I believe I can get this down to about 2-4 Plow instructions, but my point stands. For the generated Plow code I'm including a lot of Pasm, in the hopes it boots performance.
+    I also suggest that any programmer who wants to write in Peak include assembly and at the least Plow code, specifcally for the most performance intensive parts.
+Jan 19 2024:
+    Work on Pemu recontinues, implentation of file I/O begins.
+Jan 21 2024:
+    Plans for Pemu 2 being drafted. Features I know I want to add include the ability to write binary directly into your asm.
+    Other features I plan on adding is 32 bit support system wide, probably programs implemented directly into the ram.
+    16 Registers, including registers with more descriptive names than just counting up. I want to be able to exit with a exit code.
+    Most importantly I want variable length instructions. I want to implement flags instead of relying on a register holding a 1 or 0.
+    I want the ability to write hexadecimal and binary into the asm, although I really should already have that available. Pemu 1 is almost done.
+    I want to finish file I/O and also finish the CLI. After a reconsideration, I think I'll scrap the CLI. I need a better foundation.
+    Over the last few weeks whenever I think about Pemu all I can imagine is trying to build a tower during an earthquake. Pemu and Pasm need to be completely redone,
+    I will finish Pemu 1 and immediantly begin work on Pemu 2. File I/O must be quickly finished, and work on Pemu 2 begun. You know what? Screw that.
+    Pemu is too unstable to handle intense file I/O, I must begin Pemu 2. 
+Jan 26 2024:
+    Pemu 2's syntax has been mostly worked out, and work up to instruction 50 has been completed.
+    Unstable version will be added last in the project, as it's unnecesary to climb the tree of abstraction with a sturdy base.
+    The ideas of a adding lots of support for functions was an amazing idea, and because of it I've decided to implement support for libraries.
+    Libraries will be an amazing feature. With the inclusion of function support, the question of if a stack is neccesary is getting more serious.
+    I've decided to not implement a stack, and any programmer who wants some sort of stack mechanism will have to either implement it themselves,
+    or look for any existing stack libraries. The syntax I envision for Plow is amazing, and I am very much looking forward to this new improved expressive syntax.
+
+    Later in the day, got 60 instructions now I think. I haven't been working on the instructions as much, I've been working on developing a library mechanism.
+    I created a testing library to see what making a library would look like, and it was an ok experience. I made the first version of a fixed-sized vector library.
+    I also made a string equality function as a start of a string library. All of this is leading into my plans to create a standard library for Peak 2.
+    I've also changed the number of registers to 27, adding 5 function registers, 5 general purpose registers, and 1 register for holding a pointer to the return values of a function.
+Jan 28 2024:
+    I've decided to implement a label system directly into Pemu, it will no longer be the job of Pasm to handle labels.
+    Although this adds complexity, to ensure the library system is easy and straightforwad I must have it this way.
+    I have written a bit of the file I/O for Pemu 2, but I REALLY don't like writing file I/O so I've skipped over most of the file I/O
+    instructions until the rest of Pemu 2 ISA is implemented. I neglected to mention it yesterday, but I have implented a VScode syntax highlighting extension
+    for Plow 2, despite Plow 2 not actually being a compile-able language.
+Feb 2 2024:
+    I begin work again on Pemu 2, after a break.
+Feb 9 2024:
+    After another break signifigant effort is made to streamline plow development, including the development of the linker. On top of that, I've
+    completed plow's "pri" function.
+Feb 10 2024:
+    I forgot to mention it yesterday but Pasm 2 has been entirely scratched. Today I rewrote the tokenizer for Plow 2. Completed Plow 2 instructions are pri, prc, prs, input, mov.
