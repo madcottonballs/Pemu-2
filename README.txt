@@ -190,9 +190,23 @@ Pemu:
 Plow:
     In plow registers gpr11 and gpr12 are reserved.
     instructions:
-        exit
-        pri
-        prc
-        prs
-
-        
+        exit {ramloc | reg}:
+            immediantly terminates program execution with the exit code contained in the register or ramloc
+        pri {ramloc | reg | imm32}:
+            prints the integer contained in the ramloc or reg or the imm32
+        prc {ramloc | reg | char | imm32}:
+            interprets the integer contained in the locations as a charactor
+        prs {string}:
+            prints the constant string, must be null terminated
+        mov {ramloc | reg | imm32 | char} > {ramloc | reg}:
+            moves data into the destination location (the arguement after the move operator)
+        add ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+            adds the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
+        sub ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+            subtracts the 2nd arguement from the first, saves it in the destination arguement (the final arguement)
+        mult ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+            multiplies the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
+        div ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+            divides arguement 1 by arguement 2 and saves it in the destination arguement (the final arguement)
+        input {string}:
+            prints the string as a prompt and returns the address of the new ram locations containing the raw string data in rpr

@@ -303,6 +303,164 @@ def compile(file: str, sys):
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case _:
                         err(f"could not add data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
+            case "sub": # add ( 5 , 7 ) > gpr0
+                if len(tokens) != 8:
+                    err(f"not enough tokens, expected 9 but found {len(tokens)}", sys, file, program, idx)
+                if not (typeof(tokens[1]) == typeof(tokens[3]) == typeof(tokens[5]) == typeof(tokens[6]) == "other"):
+                    err("Unknown syntax", sys, file, program, idx)
+                if tokens[1].val != "(":
+                    err("An open parenthesis must be the 2nd token", sys, file, program, idx)
+                if tokens[3].val != ",":
+                    err("There must be a comma seperating arguments", sys, file, program, idx)
+                if tokens[5].val != ")":
+                    err("Closing parenthesis not found after 2nd arguement". sys, file, program, idx)
+                if tokens[6].val != ">":
+                    err("Move operator '>' not found after arguements in parenthesis", sys, file, program, idx)
+                if not isLocation(tokens[7]):
+                    err("Not a valid destination for result", sys, file, program, idx)
+                match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
+                    case "other other register":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(19) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                    case "register other register":
+                        exe.append(opcode(19) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                    case "register register register":
+                        exe.append(opcode(18) + tokens[2].bin + tokens[4].bin + tokens[7].bin)
+                    case "other register register":
+                        exe.append(opcode(19) + tokens[4].bin + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx) + tokens[7].bin)
+                    case "other other ramloc":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(19) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "register other ramloc":
+                        exe.append(opcode(19) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "register register ramloc":
+                        exe.append(opcode(18) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "other register ramloc":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(19) + regs["gpr11"] + tokens[4].bin + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case _:
+                        err(f"could not subtract data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
+            case "mult": # add ( 5 , 7 ) > gpr0
+                if len(tokens) != 8:
+                    err(f"not enough tokens, expected 9 but found {len(tokens)}", sys, file, program, idx)
+                if not (typeof(tokens[1]) == typeof(tokens[3]) == typeof(tokens[5]) == typeof(tokens[6]) == "other"):
+                    err("Unknown syntax", sys, file, program, idx)
+                if tokens[1].val != "(":
+                    err("An open parenthesis must be the 2nd token", sys, file, program, idx)
+                if tokens[3].val != ",":
+                    err("There must be a comma seperating arguments", sys, file, program, idx)
+                if tokens[5].val != ")":
+                    err("Closing parenthesis not found after 2nd arguement". sys, file, program, idx)
+                if tokens[6].val != ">":
+                    err("Move operator '>' not found after arguements in parenthesis", sys, file, program, idx)
+                if not isLocation(tokens[7]):
+                    err("Not a valid destination for result", sys, file, program, idx)
+                match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
+                    case "other other register":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(21) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                    case "register other register":
+                        exe.append(opcode(21) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                    case "register register register":
+                        exe.append(opcode(20) + tokens[2].bin + tokens[4].bin + tokens[7].bin)
+                    case "other register register":
+                        exe.append(opcode(21) + tokens[4].bin + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx) + tokens[7].bin)
+                    case "other other ramloc":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(21) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "register other ramloc":
+                        exe.append(opcode(21) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "register register ramloc":
+                        exe.append(opcode(20) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "other register ramloc":
+                        exe.append(opcode(21) + tokens[4].bin + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case _:
+                        err(f"could not multiply data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
+            case "div": # add ( 5 , 7 ) > gpr0
+                if len(tokens) != 8:
+                    err(f"not enough tokens, expected 9 but found {len(tokens)}", sys, file, program, idx)
+                if not (typeof(tokens[1]) == typeof(tokens[3]) == typeof(tokens[5]) == typeof(tokens[6]) == "other"):
+                    err("Unknown syntax", sys, file, program, idx)
+                if tokens[1].val != "(":
+                    err("An open parenthesis must be the 2nd token", sys, file, program, idx)
+                if tokens[3].val != ",":
+                    err("There must be a comma seperating arguments", sys, file, program, idx)
+                if tokens[5].val != ")":
+                    err("Closing parenthesis not found after 2nd arguement". sys, file, program, idx)
+                if tokens[6].val != ">":
+                    err("Move operator '>' not found after arguements in parenthesis", sys, file, program, idx)
+                if not isLocation(tokens[7]):
+                    err("Not a valid destination for result", sys, file, program, idx)
+                match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
+                    case "other other register":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(23) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                    case "register other register":
+                        exe.append(opcode(23) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                    case "register register register":
+                        exe.append(opcode(22) + tokens[2].bin + tokens[4].bin + tokens[7].bin)
+                    case "other register register":
+                        exe.append(opcode(23) + tokens[4].bin + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx) + tokens[7].bin)
+                    case "other other ramloc":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(23) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "register other ramloc":
+                        exe.append(opcode(23) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "register register ramloc":
+                        exe.append(opcode(22) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case "other register ramloc":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(23) + regs["gpr11"] + tokens[4].bin + regs["gpr11"])
+                        if tokens[7].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
+                    case _:
+                        err(f"could not add data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
             case _:
                 err("unknown instruction", sys, file, program, idx)
     print(", completed in {}ms".format((time.time() - start_time) * 1000))
