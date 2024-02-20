@@ -1,8 +1,15 @@
+"""NOTES:
+        ADD SUB MULT DIV all missing functionality for ramloc input
+        still need to add shifting
+        still need to add entire LU
+        need to add char functionality for cmp
+"""
+
 class ramloc:
     def __init__(self, loc):
         self.loc = loc
         self.val = self.loc
-    def add_to_exe(self, exe, regs, sys, file, program, idx, dest_reg="gpr11"): # loads the value in the ram location to gpr12
+    def get_value(self, exe, regs, sys, file, program, idx, dest_reg="gpr11"): # loads the value in the ram location to gpr11
         if self.loc in regs.keys(): # accessing a register
             exe.append("00001100" + regs[self.loc] + regs[dest_reg])
         else: # accessing using imm
@@ -17,6 +24,8 @@ class register:
 class other:
     def __init__(self, val):
         self.val = val
+    def mov_to_reg32(self, exe, regs, reg, ):
+        exe.append(opcode(2) + regs[reg] + num_to_32b(self.val, find_base(self.val)))
 
 class string:
     def __init__(self, val):
@@ -32,35 +41,50 @@ def reg_err(sys, filename, program, idx):
     err("not a valid register", sys, filename, program, idx)
 
 def num_to_32b(num: str, base: int, sys, filename, program, idx):
+    is_int(num, base, sys, filename, program, idx)
     if int(num, base) > 2**32:
         err(f"Number '{num}' (dec: '{int(num, base)}') over u32 capcity of '{2**32}'", sys, filename, program, idx)
     return format(int(num, base), "032b")
 
 def num_to_64b(num: str, base: int, sys, filename, program, idx, multiplyby=1):
+    is_int(num, base, sys, filename, program, idx)
     if int(num, base) * multiplyby > 2**64:
         err(f"Number '{num}' (dec: '{int(num, base) * multiplyby}') over u64 capcity of '{2**64}'", sys, filename, program, idx)
     return format(int(num, base) * multiplyby, "064b")
 
 def num_to_8b(num: str, base: int, sys, filename, program, idx):
+    is_int(num, base, sys, filename, program, idx)
     if int(num, base) > 2**8:
         err(f"Number '{num}' (dec: '{int(num, base)}') over u8 capcity of '{2**8}'", sys, filename, program, idx)
     return format(int(num, base), "08b")
 
 def num_to_16b(num: str, base: int, sys, filename, program, idx):
+    is_int(num, base, sys, filename, program, idx)
     if int(num, base) > 2**16:
         err(f"Number '{num}' (dec: '{int(num, base)}') over u16 capcity of '{2**16}'", sys, filename, program, idx)
     return format(int(num, base), "016b")
 
-def is_int(val):
-    return all(v in "0123456789" for v in val)
+def is_int(num, base, sys, filename, program, idx):
+    if base == 0:
+        err("Expected an integer but found invalid chars", sys, filename, program, idx)
+    if base == 10:
+        if not all(v in "0123456789" for v in num[2:]):
+            err("Expected an integer found invalid chars", sys, filename, program, idx)
+    if base == 2:
+        if not all(v in "01" for v in num[2:]):
+            err("Expected a binary int, found an invalid char", sys, filename, program, idx)
+    if base == 16:
+        if not all(v in "0123456789abcdef" for v in num[2:]):
+            err("Expected a hexadecimal int, found an invalid char", sys, filename, program, idx)
 
 def find_base(token):
     if len(token) >= 2 and token[0:2].lower() in ("0b", "0x"):
         if token[0:2].lower() == "0b":
             return 2
         return 16
-    else:
-        return 10
+    if not all(v in "0123456789" for v in token[2:]):
+        return 0
+    return 10
 
 def isLocation(value):
     if typeof(value) in ("ramloc", "register"):
@@ -108,7 +132,7 @@ def compile(file: str, sys):
                     case '"':
                         tokens.append('"')
                         instring = True
-                    case "(" | ")" | "," | ">":
+                    case "(" | ")" | "," | ">" | "." | ":":
                         tokens.append(v)
                         tokens.append("")
                     case _:
@@ -147,7 +171,7 @@ def compile(file: str, sys):
         match tokens[0].val:
             case "exit":
                 if len(tokens) != 2:
-                    err("not enough tokens", sys, file, program, idx)
+                    err("unknown syntax structure", sys, file, program, idx)
                 match typeof(tokens[1]):
                     case "register":
                         exe.append("00000000" + tokens[1].bin)
@@ -178,31 +202,85 @@ def compile(file: str, sys):
                                 exe.append(opcode(70) + (num_to_64b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx, 1_000_000)))
                             case "stackSizeMiB":
                                 exe.append(opcode(70) + (num_to_64b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx, 1_048_576)))
-                    case "string register":
-                        if tokens[1].len != 1:
-                            err("cannot move a multi char string into a register", sys, file, program, idx)
-                        exe.append("00000010" + tokens[3].bin + num_to_32b(str(ord(tokens[1].val)), find_base(str(ord(tokens[1].val))), sys, file, program, idx))    
                     case "other register":
                         if tokens[1].val == "CARL":
                             exe.append("01000011" + tokens[3].bin)
                         else:
                             exe.append("00000010" + tokens[3].bin + num_to_32b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx))
-                    case "register register":
-                        exe.append("00000011" + tokens[1].bin + tokens[3].bin)
-                    case "ramloc register":
-                        tokens[1].add_to_exe(exe, regs, sys, file, program, idx, dest_reg=tokens[3].reg)
-                    case "register ramloc":
-                        if tokens[3].loc in regs.keys(): # accessing a register
-                            exe.append(opcode(8) + tokens[1].bin + regs[tokens[3].loc])
-                        else: # accessing using imm
-                            exe.append(opcode(10) + tokens[1].bin + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))
                     case "other ramloc":
                         if tokens[3].loc in regs.keys(): # accessing a register
                             exe.append(opcode(8) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs[tokens[3].loc])
                         else: # accessing using imm
                             exe.append(opcode(10) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))
+                    case "string register":
+                        if tokens[1].len != 1:
+                            err("cannot move a multi char string into a register", sys, file, program, idx)
+                        exe.append("00000010" + tokens[3].bin + num_to_32b(str(ord(tokens[1].val)), find_base(str(ord(tokens[1].val))), sys, file, program, idx))    
+                    case "string ramloc":
+                        if tokens[1].len != 1:
+                            err("cannot move a multi char string into a register", sys, file, program, idx)
+                        if tokens[3].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(8) + num_to_32b(str(ord(tokens[1].val)), 10, sys, file, program, idx) + regs[tokens[3].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(10) + num_to_32b(str(ord(tokens[1].val)), 10, sys, file, program, idx) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))                        
+                    case "register register":
+                        exe.append("00000011" + tokens[1].bin + tokens[3].bin)
+                    case "register ramloc":
+                        if tokens[3].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(8) + tokens[1].bin + regs[tokens[3].loc])
+                        else: # accessing using imm
+                            exe.append(opcode(10) + tokens[1].bin + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))
+                    case "ramloc register":
+                        tokens[1].add_to_exe(exe, regs, sys, file, program, idx, dest_reg=tokens[3].reg)
                     case _:
                         err()
+            case "bin":
+                if len(tokens) != 2:
+                    err("not enough tokens", sys, file, program, idx)
+                if typeof(tokens[1]) != "string":
+                    err("cannot conver that to a binary instruction", sys, file, program, idx)
+                exe.append(tokens[1].val)
+            case "cmp": # cmp ( val , val )
+                if len(tokens) != 6:
+                    err(f"not enough tokens, expected 6 but found {len(tokens)}", sys, file, program, idx)
+                if not (typeof(tokens[1]) == typeof(tokens[3]) == typeof(tokens[5]) == "other"):
+                    err("Unknown syntax", sys, file, program, idx)
+                if tokens[1].val != "(":
+                    err("An open parenthesis must be the 2nd token", sys, file, program, idx)
+                if tokens[3].val != ",":
+                    err("There must be a comma seperating arguments", sys, file, program, idx)
+                if tokens[5].val != ")":
+                    err("Closing parenthesis not found after 2nd arguement". sys, file, program, idx)
+                match f"{typeof(tokens[2])} {typeof(tokens[4])}":
+                    case "other other":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(38) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx))
+                    case "register other":
+                        exe.append(opcode(38) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx))
+                    case "register register":
+                        exe.append(opcode(39) + tokens[2].bin + tokens[4].bin)
+                    case "other register":
+                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
+                        exe.append(opcode(39) + regs["gpr11"] + tokens[4].bin)
+                    case "ramloc ramloc":
+                        tokens[2].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        tokens[4].get_value(exe, regs, sys, file, program, idx, "gpr12")
+                        exe.append(opcode(39) + regs["gpr11"] + regs["gpr12"])
+                    case "ramloc other":
+                        tokens[2].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        exe.append(opcode(38) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx))
+                    case "ramloc register":
+                        tokens[2].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        exe.append(opcode(39) + regs["gpr11"] + tokens[4].bin)
+                    case "other ramloc":
+                        tokens[4].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        tokens[2].mov_to_reg32(exe, regs, "gpr12")
+                        exe.append(opcode(39) + regs["gpr11"] + regs["gpr12"])
+                    case "register ramloc":
+                        tokens[4].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        exe.append(opcode(38) + regs["gpr11"] + tokens[2].bin)
+                    case _:
+                        err(f"could not add data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
             case "pri":
                 if len(tokens) != 2:
                     err("not enough tokens", sys, file, program, idx)
@@ -251,7 +329,33 @@ def compile(file: str, sys):
                     exe.append(opcode(60))
                 else:
                     err("not enough tokens", sys, file, program, idx)
-            case "add": # add ( 5 , 7 ) > gpr0
+            case "inc":
+                if len(tokens) != 2:
+                    err("not enough tokens", sys, file, program, idx)
+                match typeof(tokens[1]):
+                    case "register":
+                        exe.append(opcode(32) + tokens[1].bin)
+                    case "ramloc":
+                        if tokens[1].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(33) + tokens[1].bin)
+                        else: # accessing using imm
+                            exe.append(opcode(34) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx))
+                    case _:
+                        err(f"cannot increment a token of type '{typeof(tokens[1])}'", sys, file, program, idx)
+            case "dec":
+                if len(tokens) != 2:
+                    err("not enough tokens", sys, file, program, idx)
+                match typeof(tokens[1]):
+                    case "register":
+                        exe.append(opcode(35) + tokens[1].bin)
+                    case "ramloc":
+                        if tokens[1].loc in regs.keys(): # accessing a register
+                            exe.append(opcode(36) + tokens[1].bin)
+                        else: # accessing using imm
+                            exe.append(opcode(37) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx))
+                    case _:
+                        err(f"cannot increment a token of type '{typeof(tokens[1])}'", sys, file, program, idx)
+            case "add": # add ( 5 , 7 ) > gpr0 ADD SUB MULT DIV
                 if len(tokens) != 8:
                     err(f"not enough tokens, expected 9 but found {len(tokens)}", sys, file, program, idx)
                 if not (typeof(tokens[1]) == typeof(tokens[3]) == typeof(tokens[5]) == typeof(tokens[6]) == "other"):
@@ -268,8 +372,8 @@ def compile(file: str, sys):
                     err("Not a valid destination for result", sys, file, program, idx)
                 match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
                     case "other other register":
-                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
-                        exe.append(opcode(17) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                        result = int(num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx), 2) + int(num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx), 2)
+                        exe.append(opcode(2) + tokens[7].bin + num_to_32b(str(result), 10, sys, file, program, idx))
                     case "register other register":
                         exe.append(opcode(17) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
                     case "register register register":
@@ -320,8 +424,8 @@ def compile(file: str, sys):
                     err("Not a valid destination for result", sys, file, program, idx)
                 match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
                     case "other other register":
-                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
-                        exe.append(opcode(19) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                        result = int(num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx), 2) - int(num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx), 2)
+                        exe.append(opcode(2) + tokens[7].bin + num_to_32b(str(result), 10, sys, file, program, idx))
                     case "register other register":
                         exe.append(opcode(19) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
                     case "register register register":
@@ -373,8 +477,8 @@ def compile(file: str, sys):
                     err("Not a valid destination for result", sys, file, program, idx)
                 match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
                     case "other other register":
-                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
-                        exe.append(opcode(21) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                        result = int(num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx), 2) * int(num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx), 2)
+                        exe.append(opcode(2) + tokens[7].bin + num_to_32b(str(result), 10, sys, file, program, idx))
                     case "register other register":
                         exe.append(opcode(21) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
                     case "register register register":
@@ -425,8 +529,8 @@ def compile(file: str, sys):
                     err("Not a valid destination for result", sys, file, program, idx)
                 match f"{typeof(tokens[2])} {typeof(tokens[4])} {typeof(tokens[7])}":
                     case "other other register":
-                        exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
-                        exe.append(opcode(23) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
+                        result = int(int(num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx), 2) / int(num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx), 2))
+                        exe.append(opcode(2) + tokens[7].bin + num_to_32b(str(result), 10, sys, file, program, idx))
                     case "register other register":
                         exe.append(opcode(23) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + tokens[7].bin)
                     case "register register register":
@@ -461,6 +565,49 @@ def compile(file: str, sys):
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case _:
                         err(f"could not add data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
+            case "ldstr":
+                if len(tokens) != 2:
+                    err("Unknown syntax found in label decleration", sys, file, program, idx)
+                if typeof(tokens[1]) != "string":
+                    err("ldstr (load string) takes a string", sys, file, program, idx)
+                exe.append(opcode(67) + regs["gpr11"]) # getramsize gpr11
+                exe.append(opcode(69) + num_to_32b(tokens[1].len, 10, sys, file, program, idx)) # expandram {tokens[1].len}
+                for idx, char in enumerate(tokens[1].val):
+                    exe.append(opcode(9) + num_to_32b(ord(char), 10, sys, file, program, idx) + regs["gpr11"]) # mov {ord(char)} > [gpr11]
+                    exe.append(opcode(32) + regs["gpr11"]) # inc gpr11 (the point in the array we are writing to)
+            case "expram":
+                if len(tokens) != 2:
+                    err("Unknown syntax found in label decleration", sys, file, program, idx)
+                match typeof(tokens[1]):
+                    case "other":
+                        exe.append(opcode(69) + num_to_32b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx))
+                    case "reg":
+                        exe.append(opcode(68) + tokens[1].bin)
+                    case "ramloc":
+                        tokens[1].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        exe.append(opcode(68) + regs["gpr11"])
+                    case _:
+                        err("expram only takes types other (int), reg, and ramloc", sys, file, program, idx)
+            case ".":
+                if len(tokens) != 3:
+                    err("Unknown syntax found in label decleration", sys, file, program, idx)
+                if typeof(tokens[2]) != "other":
+                    err("Unknown syntax", sys, file, program, idx)
+                if tokens[2].val != ":":
+                    err("Unknown syntax", sys, file, program, idx)
+                exe.append(opcode(72) + "".join([format(ord(char), "08b") for char in f".{tokens[1].val}\0"]))
+            case "jmp" | "call":
+                if len(tokens) != 3:
+                    err("Unknown syntax", sys, file, program, idx)
+                if typeof(tokens[2]) != typeof(tokens[1]) != "other":
+                    err("Unknown syntax", sys, file, program, idx)
+                if tokens[1].val != ".":
+                    err("Unrecognized label")
+                exe.append(opcode(73) + "".join([format(ord(char), "08b") for char in f".{tokens[2].val}\0"]))
+            case "ret":
+                if len(tokens) != 1:
+                    err("Unknown token found", sys, file, program, idx)
+                exe.append(opcode(74) + "00000011")
             case _:
                 err("unknown instruction", sys, file, program, idx)
     print(", completed in {}ms".format((time.time() - start_time) * 1000))
@@ -472,3 +619,4 @@ def compile(file: str, sys):
             file.close()
     else:
         return exe
+    

@@ -8,16 +8,25 @@ compilers_flags = [
 version = 1.0
 match len(sys.argv):
     case 1: # just .\pemu
-        if os.path.isfile("docs\\README.txt"):
-            print("README.txt will be displayed in terminal soon...")
-            with open("docs\\README.txt") as readme:
-                print(readme.read())
-        else:
-            print("Could not find README.txt file")
+        if input("Display docs\\README.txt? (y/n)").lower() == "y":
+            if os.path.isfile("docs\\README.txt"):
+                print("README.txt will be displayed in terminal soon...")
+                with open("docs\\README.txt") as readme:
+                    print(readme.read())
+            else:
+                print("Could not find README.txt file")
     case 2: # .\pemu [compiler]
         if not sys.argv[1] in compilers:
-            print(f"unknown compiler, please check version. This is version {version}")
-        print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
+            match sys.argv[1]:
+                case "getPATH":
+                    print(os.environ.get("PATH", "").replace(";", "\n"))
+                case "getRamSize":
+                    import psutil
+                    print(f"total memory in GB: {psutil.virtual_memory().total / 1_000_000_000}")
+                case _:
+                    print(f"unknown compiler, please check version. This is version {version}")
+        else:
+            print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
     case 3: # .\pemu [compiler] [source code]
         if sys.argv[1] in compilers:
             if os.path.isfile(sys.argv[2]):

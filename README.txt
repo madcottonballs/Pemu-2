@@ -1,3 +1,6 @@
+Linker:
+    Pemu and Plow cannot be accessed directly, they must be accessed through the linker. 
+
 Pemu:
     Pemu is a simulated computer that compiles its recieved machine instructions to rust code for maximum speed.
     compilation flags:
@@ -17,7 +20,7 @@ Pemu:
         parr (00000001):
             Stands for "pointer to arguements in ram register" and it'll be used for, well, a pointer to the arguements in ram.
         car (00000010):
-            Stands for "call address register", and is used in a branching instruction as the address of the destination insturction.
+            Stands for "call address register", and is used in a branching instruction as the address of the destination instruction.
         rar (00000011):
             Stands for "return address register", and is used as the instruction after the last branch instruction and is loaded automatically.
         ltr0 (00000100):
@@ -94,7 +97,7 @@ Pemu:
             8  | write_ram_reg_reg (reg) (reg)           | writes the value in the first register to the ram location specified by the second register
             9  | write_ram_imm_reg (imm32) (reg)         | writes the immediate to the ram location specified by the register
             10 | write_ram_reg_imm (reg) (imm32)         | writes the value in the register to the ram location specified by the imm
-            11 | write_ram_imm_imm (imm32) (imm32)       | writes the first immediate to the ram location specified by the second immediates
+            11 | write_ram_imm_imm (imm32) (imm32)       | writes the first immediate to the ram location specified by the second immediate
             12 | load_ram_reg_reg (reg) (reg)            | loads the value in the ram location specified by the first register into the second register
             13 | load_ram_imm_reg (imm32) (reg)          | loads the value in the ram location specified by the immediate into the register
             14 | load_flag_to_reg (flag) (reg)           | moves the value of the flag to the register
@@ -162,34 +165,36 @@ Pemu:
             70 | set_stack_size (imm64)                  | sets the stack size to whatever value is entered, advisable to keep it low
             71 | import_library (string)                 | loads the codebase of the pemu file described by the string directly into that spot, used for libaries
         Branching:
-            72 | jmp_reg (reg)                           | jumps to the instruction index in the register, current instruction index loaded into rar
-            73 | jmp_imm (imm32)                         | jumps to the immediate as a instruction index, current instruction index loaded into rar
-            74 | jils_reg (reg)                          | jumps to the instruction index in the register if ls_flag is 1, current instruction index loaded into rar
-            75 | jils_imm (imm32)                        | jumps to the immediate as a instruction index if ls_flag is 1, current instruction index loaded into rar
-            76 | jigt_reg (reg)                          | jumps to the instruction index in the register if gt_flag is 1, current instruction index loaded into rar
-            77 | jigt_imm (imm32)                        | jumps to the immediate as a instruction index if gt_flag is 1, current instruction index loaded into rar
-            78 | jie_reg (reg)                           | jumps to the instruction index in the register if e_flag is 1, current instruction index loaded into rar
-            79 | jie_imm (imm32)                         | jumps to the immediate as a instruction index if e_flag is 1, current instruction index loaded into rar
-            80 | jine_reg (reg)                          | jumps to the instruction index in the register if ne_flag is 1, current instruction index loaded into rar
-            81 | jine_imm (imm32)                        | jumps to the immediate as a instruction index if ne_flag is 1, current instruction index loaded into rar
-            82 | jiover_reg (reg)                        | jumps to the instruction index in the register if over_flag is 1, current instruction index loaded into rar
-            83 | jiover_imm (imm32)                      | jumps to the immediate as a instruction index if over_flag is 1, current instruction index loaded into rar
-            84 | jiundr_reg (reg)                        | jumps to the instruction index in the register if undr_flag is 1, current instruction index loaded into rar
-            85 | jiundr_imm (imm32)                      | jumps to the immediate as a instruction index if undr_flag is 1, current instruction index loaded into rar
-            86 | assignlabel (string)                    | assigns the following line of code the null-terminated-string, for easy jumping
-            87 | jmp_lbl (string)                        | jumps to the jmp_label, current instruction index loaded into rar
-            88 | jils_lbl (string)                       | jumps to the label if the ls_flag is 1, current instruction index loaded into rar
-            89 | jigt_lbl (string)                       | jumps to the label if the gt_flag is 1, current instruction index loaded into rar
-            90 | jie_lbl (string)                        | jumps to the label if the e_flag is 1, current instruction index loaded into rar
-            91 | jine_lbl (string)                       | jumps to the label if the ne_flag is 1, current instruction index loaded into rar
-            92 | jiover_lbl (string)                     | jumps to the label if the over_flag is 1, current instruction index loaded into rar
-            93 | jiundr_lbl (string)                     | jumps to the label if the undr_flag is 1, current instruction index loaded into rar
+            72 | assignlabel (string)                    | assigns the following line of code the null-terminated-string, for easy jumping
+            73 | jmp_lbl (string)                        | jumps to the jmp_label, current instruction index loaded into rar
+            74 | jmp_reg (reg)                           | jumps to the instruction pointer in the register, current instruction index loaded into rar
+            75 | jils_lbl (string)                       | jumps to the label if the ls_flag is 1, current instruction index loaded into rar
+            76 | jigt_lbl (string)                       | jumps to the label if the gt_flag is 1, current instruction index loaded into rar
+            77 | jie_lbl (string)                        | jumps to the label if the e_flag is 1, current instruction index loaded into rar
+            78 | jine_lbl (string)                       | jumps to the label if the ne_flag is 1, current instruction index loaded into rar
+            79 | jiover_lbl (string)                     | jumps to the label if the over_flag is 1, current instruction index loaded into rar
+            80 | jiundr_lbl (string)                     | jumps to the label if the undr_flag is 1, current instruction index loaded into rar
         Randomly added after I realized they would be useful:
-            94 | flush                                   | flushes all data waiting in the terminal buffer, immediantly prints all awaiting data
+            81 | flush                                   | flushes all data waiting in the terminal buffer, immediantly prints all awaiting data
 
 Plow:
-    In plow registers gpr11 and gpr12 are reserved.
-    instructions:
+    How to compile:
+        ".\linker plow {file}.plow {file}.exe {flags}"
+    Registers:
+        rpr:
+            Is updated when any value is appended to ram, kind of like the esp register in x86-64 asm, except there is no stack mechanism
+        parr:
+            pointer to the arguements to a function in ram
+        car:
+            Contains the instruction address of the instruction jumped to by a jmp or call
+        rar:
+            Contains the instruction address of instruction after the last jmp or call performed
+        ltr0 - ltr3:
+            Long term registers hold values that don't change often in a program, I suggest storing rar in one of these if you are performing jumps in a subroutine
+        gpr0 - gpr10:
+            General purpose registers hold temporary values
+        In plow registers gpr11 and gpr12 are reserved.
+    Instructions:
         exit {ramloc | reg}:
             immediantly terminates program execution with the exit code contained in the register or ramloc
         pri {ramloc | reg | imm32}:
@@ -200,6 +205,7 @@ Plow:
             prints the constant string, must be null terminated
         mov {ramloc | reg | imm32 | char} > {ramloc | reg}:
             moves data into the destination location (the arguement after the move operator)
+            if you put "CARL" (current allocated ram locations) as the first argument (no quotes) then you get the number of currently allocated ram locations
         add ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
             adds the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
         sub ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
@@ -210,3 +216,11 @@ Plow:
             divides arguement 1 by arguement 2 and saves it in the destination arguement (the final arguement)
         input {string}:
             prints the string as a prompt and returns the address of the new ram locations containing the raw string data in rpr
+        expram {imm32 | reg | ramloc}:
+            allocates ram locations by the number entered
+        ldstr {string}:
+            loads the arguement into new ram locations
+        cmp ({ramloc | reg | imm32 | char}, {ramloc | reg | imm32 | char}):
+            sets the cpu flags to how they relate 
+        bin {string}:
+            ability to write directly to the binary

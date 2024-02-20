@@ -83,7 +83,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
     using_file_io: bool = False
     byte_index = 0
     labels = {}
-    while byte_index < len(program):
+    while byte_index < len(program): # if there is a 0 in rs then the following element is the line number to assign the label, the element after that is the name of a new label, if there is a 1 the following element is a refrence to another label
         instructions += 1
         opcode = program[byte_index]
         match opcode:
@@ -845,161 +845,41 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 program.insert(end - byte_index + 1, read_binary_file())                
                 generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
                 byte_index += end - byte_index + 1
-            case 72: # jmp_reg
+            case 72: # assign_label
                 using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tjump(registers[{program[byte_index + 1]}], registers, ram, filebufs, flags);" )
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2 
-            case 73: # jmp_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tjump({imm}, registers, ram, filebufs, flags);" )
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 74: # jils_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[0] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 75: # jils_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[0] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 74: # jils_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[0] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 75: # jils_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[0] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 76: # jigt_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[1] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 77: # jigt_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[1] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 78: # jie_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[2] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 79: # jie_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[2] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 80: # jine_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[3] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 81: # jine_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[3] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 82: # jiover_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[4] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 83: # jiover_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[4] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 84: # jiundr_reg
-                using_jump = True
-                bounds_check(program, byte_index, 1)
-                if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[5] {jump(registers[" f"{program[byte_index + 1]}" "], registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 1, instructions, rs)
-                byte_index += 2
-            case 85: # jiundr_imm
-                using_jump = True
-                bounds_check(program, byte_index, 4)
-                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])
-                generate_start_of_instruction(instructions, rs)
-                rs.append("\tif flags[5] {jump(" f"{imm}" ", registers, ram, filebufs, flags);}")
-                generate_end_of_instruction(program, byte_index, 4, instructions, rs)
-                byte_index += 5
-            case 86: # assign_label
                 try:
                     end = program.index(0, byte_index + 1)
                 except:
                     error(program, byte_index, "end of string not found")
                 generate_start_of_instruction(instructions, rs)
-                labels[program[byte_index + 1:end]] = instruction + 1
+                rs.append(0)
+                rs.append(instructions + 1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
                 generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
                 byte_index += end - byte_index + 1
-            case 87: # jmp_label
+            case 73: # jmp_label
+                using_jump = True
                 try:
                     end = program.index(0, byte_index + 1)
                 except:
                     error(program, byte_index, "end of string not found")
                 generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tjump({labels[program[byte_index + 1:end]]}, registers, ram, fliebufs, flags);")
+                rs.append("\tjump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);")
                 generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
                 byte_index += end - byte_index + 1
-            case 93: # flush
+            case 74: # jmp_reg
+                using_jump = True
+                bounds_check(program, byte_index, 1)
+                if not program[byte_index + 1] < num_of_registers:
+                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")                
+                generate_start_of_instruction(instructions, rs)
+                rs.append(f"\tjump({program[byte_index + 1]}, registers, ram, filebufs, flags);")
+                generate_end_of_instruction(program, byte_index, 2, instructions, rs)
+                byte_index += 2
+            case 81: # flush
                 using_io = True
                 bounds_check(program, byte_index, 0)
                 generate_start_of_instruction(instructions, rs)
@@ -1030,7 +910,20 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
         rs.insert(1, "use std::time::Instant;")
     if using_io:
         rs.insert(1, r"use std::io::{Write, self};")
-        
+    labels = {}
+    i = 0
+    while i < len(rs):
+        if rs[i] == 0:
+            labels[rs[i + 2]] = rs[i + 1] - 1
+            del rs[i], rs[i], rs[i]
+        i += 1
+    i = 0
+    while i < len(rs):
+        if rs[i] == 1:
+            rs[i] = str(labels[rs[i + 1]] - 1) + rs[i + 2]
+            del rs[i+1], rs[i+1], rs[i+1]
+        i += 1
+
     compilation_end_time = time.time()
     print(f"finished in {(compilation_end_time - compilation_start_time) * 1000}ms")
     write_to_rs_file(output_file, rs)

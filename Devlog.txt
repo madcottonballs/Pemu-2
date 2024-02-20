@@ -68,3 +68,7 @@ Feb 9 2024:
     completed plow's "pri" function.
 Feb 10 2024:
     I forgot to mention it yesterday but Pasm 2 has been entirely scratched. Today I rewrote the tokenizer for Plow 2. Completed Plow 2 instructions are pri, prc, prs, input, mov.
+Feb 19 2024:
+    Plow 2 has been going very well, fully completed instructions are as follows: exit, mov, prs, prc, pri, input, inc, dec, add, sub, mult, div, jmp, call, ret, and ".".
+    Most of the language is done, however there is still quite a few things I'd like to add. Such as a "bin" instruction where you can write in the binary.
+    Added error checking for binary, hexadecimal, and decimal encoded integers.
