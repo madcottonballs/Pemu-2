@@ -1,8 +1,8 @@
 """NOTES:
         ADD SUB MULT DIV all missing functionality for ramloc input
-        still need to add shifting
         still need to add entire LU
         need to add char functionality for cmp
+        in mov need to add ramloc ramloc
 """
 
 class ramloc:
@@ -10,10 +10,10 @@ class ramloc:
         self.loc = loc
         self.val = self.loc
     def get_value(self, exe, regs, sys, file, program, idx, dest_reg="gpr11"): # loads the value in the ram location to gpr11
-        if self.loc in regs.keys(): # accessing a register
-            exe.append("00001100" + regs[self.loc] + regs[dest_reg])
+        if self.loc in regs.keys(): # accessing a ram location using a register
+            exe.append(opcode(12) + regs[self.loc] + regs[dest_reg])
         else: # accessing using imm
-            exe.append("00001101" + num_to_32b(self.loc, find_base(self.loc), sys, file, program, idx) + regs[dest_reg])
+            exe.append(opcode(13) + num_to_32b(self.loc, find_base(self.loc), sys, file, program, idx) + regs[dest_reg])
 
 class register:
     def __init__(self, reg, regs):
@@ -29,7 +29,14 @@ class other:
 
 class string:
     def __init__(self, val):
-        self.val = val.replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\0", "\0").replace(r"\\", "\\").replace(r"\'", "\'").replace(r"\"", "\"")
+        self.val = val.replace(
+            r"\n", "\n").replace(
+            r"\t", "\t").replace(
+            r"\0", "\0").replace(
+            r"\\", "\\").replace(
+            r"\'", "\'").replace(
+            r"\"", "\"").replace(
+            r"\r", "\r")
         self.len = len(self.val)
 
 def err(message, sys, filename, program, idx):
@@ -68,13 +75,13 @@ def is_int(num, base, sys, filename, program, idx):
     if base == 0:
         err("Expected an integer but found invalid chars", sys, filename, program, idx)
     if base == 10:
-        if not all(v in "0123456789" for v in num[2:]):
+        if not all(v in "0123456789" for v in str(num)[2:]):
             err("Expected an integer found invalid chars", sys, filename, program, idx)
     if base == 2:
-        if not all(v in "01" for v in num[2:]):
+        if not all(v in "01" for v in str(num)[2:]):
             err("Expected a binary int, found an invalid char", sys, filename, program, idx)
     if base == 16:
-        if not all(v in "0123456789abcdef" for v in num[2:]):
+        if not all(v in "0123456789abcdef" for v in str(num)[2:]):
             err("Expected a hexadecimal int, found an invalid char", sys, filename, program, idx)
 
 def find_base(token):
@@ -176,7 +183,7 @@ def compile(file: str, sys):
                     case "register":
                         exe.append("00000000" + tokens[1].bin)
                     case "ramloc":
-                        tokens[1].add_to_exe(exe, regs, sys, file, program, idx)
+                        tokens[1].get_value(exe, regs, sys, file, program, idx)
                         exe.append("00000000" + regs["gpr11"])
                     case "other":
                         exe.append("00000001" + num_to_16b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx))
@@ -204,14 +211,21 @@ def compile(file: str, sys):
                                 exe.append(opcode(70) + (num_to_64b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx, 1_048_576)))
                     case "other register":
                         if tokens[1].val == "CARL":
-                            exe.append("01000011" + tokens[3].bin)
+                            exe.append(opcode(67) + tokens[3].bin)
                         else:
-                            exe.append("00000010" + tokens[3].bin + num_to_32b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx))
+                            exe.append(opcode(2) + tokens[3].bin + num_to_32b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx))
                     case "other ramloc":
-                        if tokens[3].loc in regs.keys(): # accessing a register
-                            exe.append(opcode(8) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs[tokens[3].loc])
-                        else: # accessing using imm
-                            exe.append(opcode(10) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))
+                        if tokens[1].val == "CARL":
+                            exe.append(opcode(67) + regs["gpr11"])
+                            if tokens[3].loc in regs.keys(): # accessing a ram location using a register
+                                exe.append(opcode(8) + regs[tokens[3].loc] + regs["gpr11"]) # green light
+                            else: # accessing using imm
+                                exe.append(opcode(9) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx) + regs["gpr11"])
+                        else:
+                            if tokens[3].loc in regs.keys(): # accessing a ram location using a register
+                                exe.append(opcode(8) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs[tokens[3].loc])
+                            else: # accessing using imm
+                                exe.append(opcode(10) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))
                     case "string register":
                         if tokens[1].len != 1:
                             err("cannot move a multi char string into a register", sys, file, program, idx)
@@ -219,19 +233,19 @@ def compile(file: str, sys):
                     case "string ramloc":
                         if tokens[1].len != 1:
                             err("cannot move a multi char string into a register", sys, file, program, idx)
-                        if tokens[3].loc in regs.keys(): # accessing a register
+                        if tokens[3].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(8) + num_to_32b(str(ord(tokens[1].val)), 10, sys, file, program, idx) + regs[tokens[3].loc])
                         else: # accessing using imm
                             exe.append(opcode(10) + num_to_32b(str(ord(tokens[1].val)), 10, sys, file, program, idx) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))                        
                     case "register register":
                         exe.append("00000011" + tokens[1].bin + tokens[3].bin)
                     case "register ramloc":
-                        if tokens[3].loc in regs.keys(): # accessing a register
+                        if tokens[3].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(8) + tokens[1].bin + regs[tokens[3].loc])
                         else: # accessing using imm
                             exe.append(opcode(10) + tokens[1].bin + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx))
                     case "ramloc register":
-                        tokens[1].add_to_exe(exe, regs, sys, file, program, idx, dest_reg=tokens[3].reg)
+                        tokens[1].get_value(exe, regs, sys, file, program, idx, dest_reg=tokens[3].reg)
                     case _:
                         err()
             case "bin":
@@ -290,7 +304,7 @@ def compile(file: str, sys):
                     case "register":
                         exe.append("00110011" + tokens[1].bin)
                     case "ramloc":
-                        if tokens[1].loc in regs.keys(): # accessing a register
+                        if tokens[1].loc in regs.keys(): # accessing a ram location using a register
                             exe.append("00110101" + regs[tokens[1].loc])
                         else: # accessing using imm
                             exe.append("00110110" + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx))
@@ -305,7 +319,7 @@ def compile(file: str, sys):
                     case "register":
                         exe.append("00110111" + tokens[1].bin)
                     case "ramloc":
-                        if tokens[1].loc in regs.keys(): # accessing a register
+                        if tokens[1].loc in regs.keys(): # accessing a ram location using a register
                             exe.append("00111010" + regs[tokens[1].loc])
                         else: # accessing using imm
                             exe.append("00111011" + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx))
@@ -319,6 +333,12 @@ def compile(file: str, sys):
                 if typeof(tokens[1]) != "string":
                     err("cannot print a non-string string", sys, file, program, idx)
                 exe.append(opcode(57) + "".join(format(ord(v), "08b") for v in tokens[1].val))
+            case "implib":
+                if len(tokens) != 2:
+                    err(f"not enough tokens, expected 2 but found {len(tokens)}", sys, file, program, idx)
+                if typeof(tokens[1]) != "string":
+                    err("cannot print a non-string string", sys, file, program, idx)
+                exe.append(opcode(71) + "".join(format(ord(v), "08b") for v in tokens[1].val))
             case "input":
                 if len(tokens) == 1:
                     exe.append(opcode(60))
@@ -336,7 +356,7 @@ def compile(file: str, sys):
                     case "register":
                         exe.append(opcode(32) + tokens[1].bin)
                     case "ramloc":
-                        if tokens[1].loc in regs.keys(): # accessing a register
+                        if tokens[1].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(33) + tokens[1].bin)
                         else: # accessing using imm
                             exe.append(opcode(34) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx))
@@ -349,7 +369,7 @@ def compile(file: str, sys):
                     case "register":
                         exe.append(opcode(35) + tokens[1].bin)
                     case "ramloc":
-                        if tokens[1].loc in regs.keys(): # accessing a register
+                        if tokens[1].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(36) + tokens[1].bin)
                         else: # accessing using imm
                             exe.append(opcode(37) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx))
@@ -383,25 +403,25 @@ def compile(file: str, sys):
                     case "other other ramloc":
                         exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
                         exe.append(opcode(17) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register other ramloc":
                         exe.append(opcode(17) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register register ramloc":
                         exe.append(opcode(16) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "other register ramloc":
                         exe.append(opcode(17) + tokens[4].bin + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
@@ -435,26 +455,26 @@ def compile(file: str, sys):
                     case "other other ramloc":
                         exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
                         exe.append(opcode(19) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register other ramloc":
                         exe.append(opcode(19) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register register ramloc":
                         exe.append(opcode(18) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "other register ramloc":
                         exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
                         exe.append(opcode(19) + regs["gpr11"] + tokens[4].bin + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
@@ -488,25 +508,25 @@ def compile(file: str, sys):
                     case "other other ramloc":
                         exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
                         exe.append(opcode(21) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register other ramloc":
                         exe.append(opcode(21) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register register ramloc":
                         exe.append(opcode(20) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "other register ramloc":
                         exe.append(opcode(21) + tokens[4].bin + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
@@ -540,26 +560,26 @@ def compile(file: str, sys):
                     case "other other ramloc":
                         exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
                         exe.append(opcode(23) + regs["gpr11"] + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register other ramloc":
                         exe.append(opcode(23) + tokens[2].bin + num_to_32b(tokens[4].val, find_base(tokens[4].val), sys, file, program, idx) + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "register register ramloc":
                         exe.append(opcode(22) + tokens[2].bin + tokens[4].bin + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
                     case "other register ramloc":
                         exe.append(opcode(2) + regs["gpr11"] + num_to_32b(tokens[2].val, find_base(tokens[2].val), sys, file, program, idx))
                         exe.append(opcode(23) + regs["gpr11"] + tokens[4].bin + regs["gpr11"])
-                        if tokens[7].loc in regs.keys(): # accessing a register
+                        if tokens[7].loc in regs.keys(): # accessing a ram location using a register
                             exe.append(opcode(4) + regs["gpr11"] + regs[tokens[7].loc])
                         else: # accessing using imm
                             exe.append(opcode(5) + regs["gpr11"] + num_to_32b(tokens[7].loc, find_base(tokens[7].loc), sys, file, program, idx))
@@ -567,17 +587,17 @@ def compile(file: str, sys):
                         err(f"could not add data of type '{typeof(tokens[2])}' (with value of: '{tokens[2].val}') to type '{typeof(tokens[4])}' (with value of: '{tokens[4].val}')", sys, file, program, idx)
             case "ldstr":
                 if len(tokens) != 2:
-                    err("Unknown syntax found in label decleration", sys, file, program, idx)
+                    err("Unknown syntax found while loading a string into ram", sys, file, program, idx)
                 if typeof(tokens[1]) != "string":
                     err("ldstr (load string) takes a string", sys, file, program, idx)
                 exe.append(opcode(67) + regs["gpr11"]) # getramsize gpr11
-                exe.append(opcode(69) + num_to_32b(tokens[1].len, 10, sys, file, program, idx)) # expandram {tokens[1].len}
+                exe.append(opcode(69) + num_to_32b(str(tokens[1].len), 10, sys, file, program, idx)) # expandram {tokens[1].len}
                 for idx, char in enumerate(tokens[1].val):
-                    exe.append(opcode(9) + num_to_32b(ord(char), 10, sys, file, program, idx) + regs["gpr11"]) # mov {ord(char)} > [gpr11]
+                    exe.append(opcode(9) + num_to_32b(str(ord(char)), 10, sys, file, program, idx) + regs["gpr11"]) # mov {ord(char)} > [gpr11]
                     exe.append(opcode(32) + regs["gpr11"]) # inc gpr11 (the point in the array we are writing to)
             case "expram":
                 if len(tokens) != 2:
-                    err("Unknown syntax found in label decleration", sys, file, program, idx)
+                    err("Unknown syntax found while expanding ram", sys, file, program, idx)
                 match typeof(tokens[1]):
                     case "other":
                         exe.append(opcode(69) + num_to_32b(tokens[1].val, find_base(tokens[1].val), sys, file, program, idx))
@@ -588,6 +608,94 @@ def compile(file: str, sys):
                         exe.append(opcode(68) + regs["gpr11"])
                     case _:
                         err("expram only takes types other (int), reg, and ramloc", sys, file, program, idx)
+            case "shl":
+                if len(tokens) != 4:
+                    err("Incorrect syntax", sys, file, program, idx)
+                if not isLocation(tokens[1]):
+                    err("The first arguement is both an input and the destination, so it must be a register or ramloc", sys, file, program, idx)
+                if typeof(tokens[2]) != "other" or tokens[2].val != ",":
+                    err("There must be a comma seperating the arguements", sys, file, program, idx)
+                if typeof(tokens[3]) not in ("ramloc", "register", "other"):
+                    err("2nd arguement: Type not supported for shifting", sys, file, program, idx)
+                match f"{typeof(tokens[1])} {typeof(tokens[3])}":
+                    case "register other": # shl gpr0, 5
+                        exe.append(opcode(25) + tokens[1].bin + num_to_32b(tokens[3].val, find_base(tokens[3].val), sys, file, program, idx))
+                    case "register register": # shl gpr0, gpr1
+                        exe.append(opcode(24) + tokens[1].bin + tokens[3].bin)
+                    case "register ramloc": # shl gpr0, [0]
+                        tokens[3].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        exe.append(opcode(24) + tokens[1].bin + regs["gpr11"])
+                    case "ramloc other": # shl [0], 5
+                        if tokens[1].loc in regs.keys(): # shl [gpr0], 5
+                            tokens[3].mov_to_reg32(exe, regs, "gpr11")
+                            exe.append(opcode(26) + regs[tokens[1].loc] + regs["gpr11"])
+                        else: # shl [0], 5
+                            tokens[3].mov_to_reg32(exe, regs, "gpr11")
+                            exe.append(opcode(27) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs["gpr11"])
+                    case "ramloc register": # shl [0], 5
+                        if tokens[1].loc in regs.keys(): # shl [gpr0], gpr1
+                            exe.append(opcode(26) + regs[tokens[1].loc] + tokens[3].bin)
+                        else: # shl [0], gpr1
+                            exe.append(opcode(27) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + tokens[3].bin)
+                    case "ramloc ramloc":
+                        if tokens[1].loc in regs.keys():
+                            if tokens[3].loc in regs.keys(): # shl [gpr0], [gpr1]
+                                exe.append(opcode(12) + regs[tokens[3].loc] + regs["gpr11"])
+                                exe.append(opcode(26) + regs[tokens[1].loc] + regs["gpr11"])
+                            else: # shl [gpr0], [0]
+                                exe.append(opcode(13) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx) + regs["gpr11"])
+                                exe.append(opcode(26) + regs[tokens[1].loc] + regs["gpr11"])
+                        else: # shl [0], 
+                            if tokens[3].loc in regs.keys(): # shl [0], [gpr1]
+                                exe.append(opcode(12) + regs[tokens[3].loc] + regs["gpr11"])
+                                exe.append(opcode(27) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs["gpr11"])
+                            else: # shl [0], [1]
+                                exe.append(opcode(13) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx) + regs["gpr11"])
+                                exe.append(opcode(27) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs["gpr11"])
+            case "shr":
+                if len(tokens) != 4:
+                    err("Incorrect syntax", sys, file, program, idx)
+                if not isLocation(tokens[1]):
+                    err("The first arguement is both an input and the destination, so it must be a register or ramloc", sys, file, program, idx)
+                if typeof(tokens[2]) != "other" or tokens[2].val != ",":
+                    err("There must be a comma seperating the arguements", sys, file, program, idx)
+                if typeof(tokens[3]) not in ("ramloc", "register", "other"):
+                    err("2nd arguement: Type not supported for shifting", sys, file, program, idx)
+                match f"{typeof(tokens[1])} {typeof(tokens[3])}":
+                    case "register other": # shl gpr0, 5
+                        exe.append(opcode(29) + tokens[1].bin + num_to_32b(tokens[3].val, find_base(tokens[3].val), sys, file, program, idx))
+                    case "register register": # shl gpr0, gpr1
+                        exe.append(opcode(28) + tokens[1].bin + tokens[3].bin)
+                    case "register ramloc": # shl gpr0, [0]
+                        tokens[3].get_value(exe, regs, sys, file, program, idx, "gpr11")
+                        exe.append(opcode(28) + tokens[1].bin + regs["gpr11"])
+                    case "ramloc other": # shl [0], 5
+                        if tokens[1].loc in regs.keys(): # shl [gpr0], 5
+                            tokens[3].mov_to_reg32(exe, regs, "gpr11")
+                            exe.append(opcode(30) + regs[tokens[1].loc] + regs["gpr11"])
+                        else: # shl [0], 5
+                            tokens[3].mov_to_reg32(exe, regs, "gpr11")
+                            exe.append(opcode(31) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs["gpr11"])
+                    case "ramloc register": # shl [0], 5
+                        if tokens[1].loc in regs.keys(): # shl [gpr0], gpr1
+                            exe.append(opcode(31) + regs[tokens[1].loc] + tokens[3].bin)
+                        else: # shl [0], gpr1
+                            exe.append(opcode(31) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + tokens[3].bin)
+                    case "ramloc ramloc":
+                        if tokens[1].loc in regs.keys():
+                            if tokens[3].loc in regs.keys(): # shl [gpr0], [gpr1]
+                                exe.append(opcode(12) + regs[tokens[3].loc] + regs["gpr11"])
+                                exe.append(opcode(30) + regs[tokens[1].loc] + regs["gpr11"])
+                            else: # shl [gpr0], [0]
+                                exe.append(opcode(13) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx) + regs["gpr11"])
+                                exe.append(opcode(30) + regs[tokens[1].loc] + regs["gpr11"])
+                        else: # shl [0], 
+                            if tokens[3].loc in regs.keys(): # shl [0], [gpr1]
+                                exe.append(opcode(12) + regs[tokens[3].loc] + regs["gpr11"])
+                                exe.append(opcode(31) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs["gpr11"])
+                            else: # shl [0], [1]
+                                exe.append(opcode(13) + num_to_32b(tokens[3].loc, find_base(tokens[3].loc), sys, file, program, idx) + regs["gpr11"])
+                                exe.append(opcode(31) + num_to_32b(tokens[1].loc, find_base(tokens[1].loc), sys, file, program, idx) + regs["gpr11"])
             case ".":
                 if len(tokens) != 3:
                     err("Unknown syntax found in label decleration", sys, file, program, idx)
@@ -596,14 +704,19 @@ def compile(file: str, sys):
                 if tokens[2].val != ":":
                     err("Unknown syntax", sys, file, program, idx)
                 exe.append(opcode(72) + "".join([format(ord(char), "08b") for char in f".{tokens[1].val}\0"]))
-            case "jmp" | "call":
+            case "jmp" | "call" | "jine" | "jie" | "jils" | "jigt" | "jiover" | "jiundr":
+                branchers = {"jmp":73, "call":73, "jine":78, "jie":77, "jils":75, "jigt":76, "jiover":79, "jiundr":80}
                 if len(tokens) != 3:
                     err("Unknown syntax", sys, file, program, idx)
                 if typeof(tokens[2]) != typeof(tokens[1]) != "other":
                     err("Unknown syntax", sys, file, program, idx)
                 if tokens[1].val != ".":
                     err("Unrecognized label")
-                exe.append(opcode(73) + "".join([format(ord(char), "08b") for char in f".{tokens[2].val}\0"]))
+                exe.append(opcode(branchers[tokens[0].val]) + "".join([format(ord(char), "08b") for char in f".{tokens[2].val}\0"]))
+            case "flush":
+                if len(tokens) != 1:
+                    err("Unknown syntax", sys, file, program, idx)
+                exe.append(opcode(81))
             case "ret":
                 if len(tokens) != 1:
                     err("Unknown token found", sys, file, program, idx)

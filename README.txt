@@ -114,7 +114,7 @@ Pemu:
             24 | shl_reg_reg (reg) (reg)                 | shifts the bits in the first register over to the left by the value in the second register
             25 | shl_reg_imm (reg) (imm)                 | shifts the bits in the register over to the left by the immediate
             26 | shl_ram_reg (reg) (reg)                 | shifts the bits in the ram location described by the first register over to the left by the value in the second register
-            27 | shl_ram_imm (reg) (imm)                 | shifts the bits in the ram location described by the register over to the left by the immediate
+            27 | shl_ram_imm (imm) (reg)                 | shifts the bits in the ram location described by the imm over to the left by the register
             28 | shr_reg_reg (reg) (reg)                 | shifts the bits in the first register over to the right by the value in the second register
             29 | shr_reg_imm (reg) (imm)                 | shifts the bits in the register over to the right by the immediate
             30 | shr_ram_reg (reg) (reg)                 | shifts the bits in the ram location described by the right register over to the left by the value in the second register
@@ -185,42 +185,93 @@ Plow:
             Is updated when any value is appended to ram, kind of like the esp register in x86-64 asm, except there is no stack mechanism
         parr:
             pointer to the arguements to a function in ram
+        prvr:
+            pointer to the return values from a function
         car:
             Contains the instruction address of the instruction jumped to by a jmp or call
         rar:
             Contains the instruction address of instruction after the last jmp or call performed
         ltr0 - ltr3:
             Long term registers hold values that don't change often in a program, I suggest storing rar in one of these if you are performing jumps in a subroutine
+        fr0 - fr4:
+            registers that are for specific use by functions so functions can have their own registers where they won't corrupt gpr registers.
         gpr0 - gpr10:
             General purpose registers hold temporary values
-        In plow registers gpr11 and gpr12 are reserved.
+        In plow, registers gpr11 and gpr12 are reserved.
+    cpu flags:
+        ls_flag:
+            if true, it means that in the last compare instruction, the first arguement was less than the second
+        gt_flag:
+            if true, it means that in the last compare instruction, the first arguement was greater than the second
+        e_flag:
+            if true, it means that in the last compare instruction, the first arguement was equal to the second
+        ne_flag:
+            if true, it means that in the last compare instruction, the first arguement was not equal to the second
+        over_flag:
+            if true, it means that in the Arithmatic instruction, the result overflowed
+        undr_flag:
+            if true, it means that in the last Arithmatic instruction, the result underflowed
     Instructions:
-        exit {ramloc | reg}:
-            immediantly terminates program execution with the exit code contained in the register or ramloc
-        pri {ramloc | reg | imm32}:
-            prints the integer contained in the ramloc or reg or the imm32
-        prc {ramloc | reg | char | imm32}:
-            interprets the integer contained in the locations as a charactor
-        prs {string}:
-            prints the constant string, must be null terminated
-        mov {ramloc | reg | imm32 | char} > {ramloc | reg}:
-            moves data into the destination location (the arguement after the move operator)
-            if you put "CARL" (current allocated ram locations) as the first argument (no quotes) then you get the number of currently allocated ram locations
-        add ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
-            adds the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
-        sub ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
-            subtracts the 2nd arguement from the first, saves it in the destination arguement (the final arguement)
-        mult ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
-            multiplies the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
-        div ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
-            divides arguement 1 by arguement 2 and saves it in the destination arguement (the final arguement)
-        input {string}:
-            prints the string as a prompt and returns the address of the new ram locations containing the raw string data in rpr
-        expram {imm32 | reg | ramloc}:
-            allocates ram locations by the number entered
-        ldstr {string}:
-            loads the arguement into new ram locations
-        cmp ({ramloc | reg | imm32 | char}, {ramloc | reg | imm32 | char}):
-            sets the cpu flags to how they relate 
-        bin {string}:
-            ability to write directly to the binary
+        misc:
+            exit {ramloc | reg}:
+                immediantly terminates program execution with the exit code contained in the register or ramloc
+            bin {string}:
+                the string is pemu binary that you write, ensuring 0 instructions are completly lost
+            implib {string}:
+                The string argument is a path to a .pemu file.
+                The contents of the .pemu file will be included in the host file.
+                The codebase in the .pemu will be put directly at this line of code.
+                After the code is imported, the compiler will not differentiate between the library code and host code, so ensure there are no conflicts.
+        movement:
+            mov {ramloc | reg | imm32 | char} > {ramloc | reg}:
+                moves data into the destination location (the arguement after the move operator)
+                if you put "CARL" (current allocated ram locations) as the first argument (no quotes) then you get the number of currently allocated ram locations
+            expram {imm32 | reg | ramloc}:
+                allocates the amount entered in ram locations
+            ldstr {string}:
+                loads each char into a new ram location (not null terminated)
+                rpr is updated
+                equation for num of binary instructions (x is string len): (2x + 2)
+        AU:
+            add ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+                adds the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
+            sub ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+                subtracts the 2nd arguement from the first, saves it in the destination arguement (the final arguement)
+            mult ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+                multiplies the 2 arguements in parenthesis and saves it in the destination arguement (the final arguement)
+            div ({ramloc | reg | imm32}, {ramloc | reg | imm32}) > {ramloc | reg}:
+                divides arguement 1 by arguement 2 and saves it in the destination arguement (the final arguement)
+            inc {ramloc | reg}:
+                adds 1 to the location
+            dec {ramloc | reg}:
+                subtracts 1 from the location
+        LU:
+            cmp ({ramloc | reg | imm32 | char}, {ramloc | reg | imm32 | char}):
+                sets the cpu flags to how they relate 
+        CLI:
+            input {string}:
+                prints the string as a prompt and returns the address of the new ram locations containing the raw string data in rpr
+            pri {ramloc | reg | imm32}:
+                prints the integer contained in the ramloc or reg or the imm32
+            prc {ramloc | reg | char | imm32}:
+                interprets the integer contained in the locations as a charactor
+            prs {string}:
+                prints the constant string, must be null terminated
+            flush:
+                flushes the io stream (immediantly sends out all chars waiting to be displayed)
+        Branching:
+            ".{label}:":
+                creates a label, essentially a named line of code that can be used by other instructions to get back that line of code
+                requires a period at the start and and a colon at the end
+            jie .{label}:
+                jumps to the label if e_flag is true
+            jine .{label}:
+                jumps to the label if the ne_flag is true
+            jils .{label}:
+                jumps to the label is the ls_flag is true
+            jigt .{label}:
+                jumps to the label if the gt_flag is true
+            jiover .{label}:
+                jumps to the label if the over_flag is true
+            jiundr .{label}:
+                jumps to the label if the undr_flag is true

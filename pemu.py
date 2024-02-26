@@ -13,7 +13,10 @@ def next_instr(byte_index: int, num_of_operands: int) -> None:
 
 def error(program: list[int], byte_index: int, details: str) -> None:
     print(f"PEMU: compilation error at byte {byte_index}: {details}")
-    print(f"\t{program[byte_index]}")
+    if len(program) <= byte_index + 5:
+        print(f"\t{program[byte_index]}")
+    else:
+        print(f"\t{program[byte_index]} {program[byte_index + 1]} {program[byte_index + 2]} {program[byte_index + 3]} {program[byte_index + 4]}")
     import sys
     sys.exit()
 
@@ -49,7 +52,6 @@ class label:
     def __init__(self, line: int, substitution: list[int]) -> None:
         self.line = line
         self.sub = substitution
-
 
 def compile_stable(program, path, show_time, os, delete_waste, unstable, run, output_file="a"):
     path_no_extension = ".".join(path.split(".")[:-1])
@@ -360,7 +362,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 generate_start_of_instruction(instructions, rs)
                 imm = make_32_bit(program[byte_index + 2], program[byte_index + 3], program[byte_index + 4], program[byte_index + 5])                                
                 rs.append(f"\tregisters[{program[byte_index + 1]}] = registers[{program[byte_index + 1]}] << {imm};")
-                generate_end_of_instruction(program, byte_index, 2, instructions, rs)
+                generate_end_of_instruction(program, byte_index, 5, instructions, rs)
                 byte_index += 6
             case 26: # shl_ram_reg
                 bounds_check(program, byte_index, 2)
@@ -377,9 +379,9 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 if not program[byte_index + 1] < num_of_registers:
                     error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")                
                 generate_start_of_instruction(instructions, rs)
-                imm = make_32_bit(program[byte_index + 2], program[byte_index + 3], program[byte_index + 4], program[byte_index + 5])                                
-                rs.append(f"\tram[registers[{program[byte_index + 1]}] as usize] = ram[registers[{program[byte_index + 1]}] as usize] << {imm};")
-                generate_end_of_instruction(program, byte_index, 2, instructions, rs)
+                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])                                
+                rs.append(f"\tram[{imm}] = ram[{imm}] << registers[{program[byte_index + 5]}];")
+                generate_end_of_instruction(program, byte_index, 5, instructions, rs)
                 byte_index += 6
             case 28: # shr_reg_reg
                 bounds_check(program, byte_index, 2)
@@ -394,11 +396,11 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
             case 29: # shr_reg_imm
                 bounds_check(program, byte_index, 5)
                 if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")                
+                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")       
                 generate_start_of_instruction(instructions, rs)
                 imm = make_32_bit(program[byte_index + 2], program[byte_index + 3], program[byte_index + 4], program[byte_index + 5])                                
                 rs.append(f"\tregisters[{program[byte_index + 1]}] = registers[{program[byte_index + 1]}] >> {imm};")
-                generate_end_of_instruction(program, byte_index, 2, instructions, rs)
+                generate_end_of_instruction(program, byte_index, 5, instructions, rs)
                 byte_index += 6
             case 30: # shr_ram_reg
                 bounds_check(program, byte_index, 2)
@@ -413,11 +415,11 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
             case 31: # shr_ram_imm
                 bounds_check(program, byte_index, 5)
                 if not program[byte_index + 1] < num_of_registers:
-                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")                
+                    error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
                 generate_start_of_instruction(instructions, rs)
-                imm = make_32_bit(program[byte_index + 2], program[byte_index + 3], program[byte_index + 4], program[byte_index + 5])                             
-                rs.append(f"\tram[registers[{program[byte_index + 1]}] as usize] = ram[registers[{program[byte_index + 1]}] as usize] >> {imm};")
-                generate_end_of_instruction(program, byte_index, 2, instructions, rs)
+                imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])                             
+                rs.append(f"\tram[{imm}] = ram[{imm}] >> registers[{program[byte_index + 5]}];")
+                generate_end_of_instruction(program, byte_index, 5, instructions, rs)
                 byte_index += 6
             case 32: # inc_reg 
                 bounds_check(program, byte_index, 1)
@@ -643,7 +645,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 if not program[byte_index + 1] < num_of_registers:
                     error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
                 generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tif registers[{program[byte_index + 1]}] < ram.len() " + "{")
+                rs.append(f"\tif registers[{program[byte_index + 1]}] as usize < ram.len() " + "{")
                 rs.append(f"\t\tprint!(\"{"{" + "}"}\", ram[registers[{program[byte_index + 1]}] as usize]);")
                 rs.append("\t} else {")
                 rs.append("\t\tprintln!(\"during a print integer from ram instruction, you entered a index larger than ram\");")
@@ -657,7 +659,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 rs.append(f"\tif {imm} < ram.len() " + "{")
                 rs.append(f"\t\tprint!(\"{"{" + "}"}\", ram[{imm}]);")
                 rs.append("\t} else {")
-                rs.append("\t\tprintln!(\"during a print integer from ram instruction, you entered a index larger than ram\");")
+                rs.append("\t\tprintln!(\"runtime error: during a print integer from ram instruction, you entered a index larger than ram\");")
                 rs.append("\t}")
                 generate_end_of_instruction(program, byte_index, 4, instructions, rs)
                 byte_index += 5            
@@ -692,8 +694,8 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 if not program[byte_index + 1] < num_of_registers:
                     error(program, byte_index, f"Register idx {program[byte_index + 1]} not valid")
                 generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tif registers[{program[byte_index + 1]}] < ram.len() " + "{")
-                rs.append(f"\t\tprint!(\"{"{" + "}"}\", ram[registers[{program[byte_index + 1]}] as usize] as char);")
+                rs.append(f"\tif (registers[{program[byte_index + 1]}] as usize) < ram.len() " + "{")
+                rs.append(f"\t\tprint!(\"{"{" + "}"}\", char::from_u32(ram[registers[{program[byte_index + 1]}] as usize]).unwrap());")
                 rs.append("\t} else {")
                 rs.append("\t\tprintln!(\"during a print integer from ram instruction, you entered a index larger than ram\");")
                 rs.append("\t}")
@@ -704,7 +706,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 generate_start_of_instruction(instructions, rs)
                 imm = make_32_bit(program[byte_index + 1], program[byte_index + 2], program[byte_index + 3], program[byte_index + 4])                             
                 rs.append(f"\tif {imm} < ram.len() " + "{")
-                rs.append(f"\t\tprint!(\"{"{" + "}"}\", ram[{imm}] as char);")
+                rs.append(f"\t\tprint!(\"{"{" + "}"}\", char::from_u32(ram[{program[byte_index + 1]}]));")
                 rs.append("\t} else {")
                 rs.append("\t\tprintln!(\"during a print integer from ram instruction, you entered a index larger than ram\");")
                 rs.append("\t}")
@@ -818,7 +820,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                         rs.append(f"\tram.resize(ram.len() + {imm}, 0);")
                     else:
                         rs.append("\tregisters[0] = ram.len() as u32;")
-                        rs.append("\tram.append(0);")
+                        rs.append("\tram.push(0);")
                 else:
                     rs.append("\tregisters[0] = (ram.len() - 1) as u32;")
                 generate_end_of_instruction(program, byte_index, 4, instructions, rs)
@@ -879,6 +881,22 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 rs.append(f"\tjump({program[byte_index + 1]}, registers, ram, filebufs, flags);")
                 generate_end_of_instruction(program, byte_index, 2, instructions, rs)
                 byte_index += 2
+            
+            case 78: # jine_reg
+                using_jump = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                rs.append("\tif flags[3] " + "{" + f"jump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);}")
+
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1
+            
             case 81: # flush
                 using_io = True
                 bounds_check(program, byte_index, 0)
@@ -911,20 +929,35 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
     if using_io:
         rs.insert(1, r"use std::io::{Write, self};")
     labels = {}
+    # looping over every element of rs looking for a 0. If it finds a 0, it looks 2 elements ahead (the label name) and assigns
+    # the label name to the element ahead (the instruction the label is being assigned) - 1
     i = 0
+    instruction_dest_offset = 1
     while i < len(rs):
         if rs[i] == 0:
-            labels[rs[i + 2]] = rs[i + 1] - 1
+            labels[rs[i + 2]] = rs[i + 1] - instruction_dest_offset
             del rs[i], rs[i], rs[i]
         i += 1
+    # what we have:
+    # [1][label name][rest of the line of code]
+    # what we want:
+    # [instruction idx of the destination + rest of the rust line of code]
+    # it reloops looking for 1's which are refrences to labels
+    # if it find a 1 it grabs the rs element after it (the label name), and searches it up in labels
+    # now it has the instruction idx of the label, it offsets the destination by 1 and then builds of the line of rust code for reinsertion
     i = 0
     while i < len(rs):
         if rs[i] == 1:
-            rs[i] = str(labels[rs[i + 1]] - 1) + rs[i + 2]
+            label_name = rs[i + 1]
+            found_instr_idx = labels[label_name]
+            end_of_rust_line = rs[i + 2]
+            rs[i] = str(found_instr_idx) + end_of_rust_line
+            # clearing clutter
             del rs[i+1], rs[i+1], rs[i+1]
         i += 1
 
     compilation_end_time = time.time()
+    # completing the half printed line from before
     print(f"finished in {(compilation_end_time - compilation_start_time) * 1000}ms")
     write_to_rs_file(output_file, rs)
     print(f"RUST: {output_file}.rs -> .ll -> .o -> {output_file}.exe")

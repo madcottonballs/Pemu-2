@@ -72,3 +72,14 @@ Feb 19 2024:
     Plow 2 has been going very well, fully completed instructions are as follows: exit, mov, prs, prc, pri, input, inc, dec, add, sub, mult, div, jmp, call, ret, and ".".
     Most of the language is done, however there is still quite a few things I'd like to add. Such as a "bin" instruction where you can write in the binary.
     Added error checking for binary, hexadecimal, and decimal encoded integers.
+Feb 24 2024:
+    Plow 2 production is going smooth. I have been focused on bug fixes and adding instructions to Plow every so often.
+    My main method of bug fixing and adding features to Plow is by writing a Plow 2 script. If it won't compile, make it compile.
+    If it gives unexpected results, fix the results.
+    I need to get to work on moving the rest of the LU up, and flag capabilities in mov. 
+Feb 25 2024:
+    Plans for the next 4 months of development have been made.
+    By March 10-15 Plow 2 and therefore Pemu 2 will be complete.
+    I will use March 10-20 for debugging.
+    I will use March 20 - April 5 to write Plow libraries and then release them.
+    After I'm done writing the libraries I will begin writing Peak. 
