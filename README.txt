@@ -1,8 +1,25 @@
+Setup:
+    For Rust implementation (only working one right now):
+        Download Rust from it's website https://www.rust-lang.org/tools/install
+        If you see an option to add cargo and rustc commands to the system PATH make sure to toggle yes.
+        Make sure the "rustc" command is working system wide.
+    For C implementation: (not available)
+        Download the gcc compiler (make sure to download C) and make sure it is available system wide.
+
+
 Linker:
-    Pemu and Plow cannot be accessed directly, they must be accessed through the linker. 
+    Pemu and Plow cannot (or rather shouldn't) be accessed directly, they must be accessed through the linker. 
+
+    Occasionaly Pemu compilation will fail because of how fast files are being sent in and out.
+    Virus checkers such as McAfee will quarentine an executable before it is allowed to go onto the computers hard drive.
+    This means there is a slight delay and a very long and cryptic error will be thrown. To stop this, I have included an option to briefly pause between each compilation step.
+    To toggle this, use these commands:
+        To find out if delay is toggled, use this command: ".\pemu getDelayEnabled"
+        To toggle delay, type this: ".\pemu toggleDelay"
 
 Pemu:
-    Pemu is a simulated computer that compiles its recieved machine instructions to rust code for maximum speed.
+    Pemu is a simple CISC simulated computer that compiles its recieved machine instructions to Rust code for maximum speed.
+    Pemu operates like a simplified version of a real computer, including flags, registers, and ram.
     compilation flags:
         "--unstable":
             Increases speed of generated code, but will not throw an error if one occurs, 
@@ -167,7 +184,6 @@ Pemu:
         Branching:
             72 | assignlabel (string)                    | assigns the following line of code the null-terminated-string, for easy jumping
             73 | jmp_lbl (string)                        | jumps to the jmp_label, current instruction index loaded into rar
-            74 | jmp_reg (reg)                           | jumps to the instruction pointer in the register, current instruction index loaded into rar
             75 | jils_lbl (string)                       | jumps to the label if the ls_flag is 1, current instruction index loaded into rar
             76 | jigt_lbl (string)                       | jumps to the label if the gt_flag is 1, current instruction index loaded into rar
             77 | jie_lbl (string)                        | jumps to the label if the e_flag is 1, current instruction index loaded into rar
@@ -176,10 +192,16 @@ Pemu:
             80 | jiundr_lbl (string)                     | jumps to the label if the undr_flag is 1, current instruction index loaded into rar
         Randomly added after I realized they would be useful:
             81 | flush                                   | flushes all data waiting in the terminal buffer, immediantly prints all awaiting data
+            82 | run_cmd_string (string)                 | executes the string as a cmd command
 
 Plow:
-    How to compile:
-        ".\linker plow {file}.plow {file}.exe {flags}"
+    How to compile to exe:
+        ".\pemu plow {file}.plow {file}.exe {flags}"
+    How to compile to library:
+        ".\pemu plow {file}.plow {file}.pemu --lib {flags}"
+    Compilation flags:
+        "--nodeletewaste":
+            Doesn't delete intermeddiate files.
     Registers:
         rpr:
             Is updated when any value is appended to ram, kind of like the esp register in x86-64 asm, except there is no stack mechanism
@@ -211,6 +233,52 @@ Plow:
             if true, it means that in the Arithmatic instruction, the result overflowed
         undr_flag:
             if true, it means that in the last Arithmatic instruction, the result underflowed
+    Types:
+        reg:
+            Any reference of one of the registers mentioned in the registers section is of type reg.
+            There is no symbol required to make a reference, just the typical rules.
+        ramloc:
+            A ramloc is a reg or imm32 surrounded by square brackets. Ramloc is just a reference to a ram location.
+            In almost all cases the reference will be optimized as much as possible, so don't worry about imm32 vs reg ramloc, although I suggest reg ramloc.
+            Examples:
+                "[gpr0]"
+                "[24]"
+                "[0xAB7C]"
+                "[0b101]"
+            Examples of usage:
+                "mov 5 > [gpr0]"
+                "mov 0xAC > [1]"
+                "mov [0b10111111] > [1472438]"
+        imm16:
+            A literal integer between 0 and 65,535 (2^16-1).
+            Can be in decimal (no prefix), binary (standard prefix of "0b"), or hexadecimal (standard prefix pf "0x").
+        imm32:
+            A literal integer between 0 and 4,294,967,295 (2^32-1).
+            Can be in decimal (no prefix), binary (standard prefix of "0b"), or hexadecimal (standard prefix pf "0x").
+        imm64:
+            A literal integer between 0 and 18,446,744,073,709,551,615 (2^64-1).
+            Can be in decimal (no prefix), binary (standard prefix of "0b"), or hexadecimal (standard prefix pf "0x").
+        String:
+            Quotes that represent an array of chars that are almost always null terminated.
+            Supported regex:
+                \0:
+                    A null char, do not use unless at the end of a string as it will be considered the end of the string.
+                    The Pemu compiler considers the first null char the end of the string, so if there are multiple, it will misinterpret the char data as instruction data.
+                    That will corrupt the entire file, likely resulting in a error, or, in the absolutely worst case, corruption of file data.
+                \n:
+                    A newline char, will be interpreted by text renderers as the sign to start displaying on the next line.
+                \t:
+                    A tab char, will be interpreted by text renderers as a tab.
+                \\:
+                    Used for when you have a situation where you don't want the "\" sign to be interpreted as a regex and messup the string.
+                \':
+                    Used for quotes within strings.
+                \":
+                    Also used for quotes within strings.
+                \r:
+                    Return sign, I don't know why anyone would use this, but no harm in adding it I guess.
+                I'll add more if suggested. Really, literally any idea for a new regex is accepted. It's incredibly easy to add.
+     
     Instructions:
         misc:
             exit {ramloc | reg}:
@@ -245,10 +313,24 @@ Plow:
                 adds 1 to the location
             dec {ramloc | reg}:
                 subtracts 1 from the location
+            shl {ramloc | reg}, {ramloc | reg | imm32}:
+                shifts the bits in the first arguement to the left by the amount entered, effectively doubling the destination however many times the 2nd argument specifies.
+            shr {ramloc | reg}, {ramloc | reg | imm32}:
+                shifts the bits in the first arguement to the right by the amount entered, effectively dividing by 2 the destination however many times the 2nd argument specifies.
         LU:
             cmp ({ramloc | reg | imm32 | char}, {ramloc | reg | imm32 | char}):
-                sets the cpu flags to how they relate 
+                sets the cpu flags to how they relate
+            or ({register | flag}, {regsister | flag}) > {destination register}:
+                if the value in the first location is 1 or the value in the second location is 1 then it sets the destination register to 1.
+            and ({register | flag}, {regsister | flag}) > {destination register}:
+                if the value in the first location is 1 and the value in the second location is 1 then it sets the destination register to 1.
+            xor ({register | flag}, {regsister | flag}) > {destination register}:
+                if the value in the first location is not equal to the value in the second location then it sets the destination register to 1.
+            not {register | flag} > {destination register}:
+                if the value in the first location is 1 the destination register is loaded with 0 and if the first location is 0 the destination register is loaded with 1.
         CLI:
+            cmd {string}:
+                executes the string as a cmd command
             input {string}:
                 prints the string as a prompt and returns the address of the new ram locations containing the raw string data in rpr
             pri {ramloc | reg | imm32}:

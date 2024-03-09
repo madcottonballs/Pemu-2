@@ -3,9 +3,23 @@ compilers = ("pemu", "plow")
 compilers_location = "" # meaning cwd 
 compilers_flags = [
                     ["--unstable", "--notimefeedback", "--nodeletewaste", "--norun"],
-                    ["--unstable",  "--notimefeedback", "--nodeletewaste", "--norun"]
+                    ["--unstable",  "--notimefeedback", "--nodeletewaste", "--norun", "--lib"]
                 ]
 version = 1.0
+if not os.path.isfile("linker_settings.txt"):
+    with open("linker_settings.txt", "w") as file:
+        file.close()
+with open("linker_settings.txt", "r") as file:
+    settings = file.readlines()
+if len(settings) != 1 or settings[0] not in ("False", "True"):
+    print("Corrupted linker_settings.txt file, fixing corruption setting settings to default.")
+    print("There will now be a delay between compilation steps.")
+    with open("linker_settings.txt", "w") as fix_corruption:
+        fix_corruption.write("True")
+if settings[0] == "False":
+    delay = False
+else:
+    delay = True
 match len(sys.argv):
     case 1: # just .\pemu
         if input("Display docs\\README.txt? (y/n)").lower() == "y":
@@ -23,6 +37,20 @@ match len(sys.argv):
                 case "getRamSize":
                     import psutil
                     print(f"total memory in GB: {psutil.virtual_memory().total / 1_000_000_000}")
+                case "getDelayEnabled":
+                    if settings[0] == "False":
+                        print("Compilation delay is off")
+                    else:
+                        print("Compilation delay is on")
+                case "toggleDelay":
+                    if settings[0] == "False":
+                        with open("linker_settings.txt", "w") as file:
+                            file.write("True")
+                        print("Compilation delay turned on")
+                    else:
+                        with open("linker_settings.txt", "w") as file:
+                            file.write("False")
+                        print("Compilation delay turned off")
                 case _:
                     print(f"unknown compiler, please check version. This is version {version}")
         else:
@@ -34,7 +62,16 @@ match len(sys.argv):
             else:
                 print("the entered source code is not a valid file, and an output file was not specified")
         else:
-            print(f"unknown compiler, please check version. This is version {version}")
+            if os.path.isfile(sys.argv[1]):
+                match sys.argv[1].split(".")[-1]:
+                    case "pemu":
+                        print(f"You have forgotton to specify the compiler, here is the command you intended to run: \".\\pemu pemu {sys.argv[1]} {sys.argv[2]}\"")
+                    case "plow":
+                        print(f"You have forgotton to specify the compiler, here is the command you intended to run: \".\\pemu plow {sys.argv[1]} {sys.argv[2]}\"")
+                    case _:
+                        print(f"Please specify compiler, and {sys.argv[1].split(".")[-1]} is not a valid file extension for pemu or plow")
+            else:
+                print(f"unknown compiler, please check version. This is version {version}")
         print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
     case 4: # .\pemu [compiler] [source code] [output] STANDARD COMPILATION
         if not sys.argv[1] in compilers:
@@ -45,16 +82,16 @@ match len(sys.argv):
             print("source code file not found")
             print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
             sys.exit(1)
-        if os.path.isfile("compilers\\pemu.py"):
+        if os.path.isfile("source code\\pemu.py"):
            from compilers import pemu
         else:
-            print("compilers\\pemu.py compiler not found")
+            print("source code\\pemu.py compiler not found")
             print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
             sys.exit(1)
-        if os.path.isfile("compilers\\plow.py"):
+        if os.path.isfile("source code\\plow.py"):
             from compilers import plow
         else:
-            print("compilers\\plow.py compiler not found")
+            print("source code\\plow.py compiler not found")
             print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
             sys.exit(1)
         match sys.argv[1]:
@@ -71,16 +108,16 @@ match len(sys.argv):
             print("source code file not found")
             print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
             sys.exit(1)
-        if os.path.isfile("compilers\\pemu.py"):
+        if os.path.isfile("source code\\pemu.py"):
            from compilers import pemu
         else:
-            print("compilers\\pemu.py compiler not found")
+            print("source code\\pemu.py compiler not found")
             print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
             sys.exit(1)
-        if os.path.isfile("compilers\\plow.py"):
+        if os.path.isfile("source code\\plow.py"):
             from compilers import plow
         else:
-            print("compilers\\plow.py compiler not found")
+            print("source code\\plow.py compiler not found")
             print("please run '.\\pemu' to get help, or read the README.txt file under the 'docs' directory")
             sys.exit(1)
         match sys.argv[1]:
@@ -129,5 +166,10 @@ match len(sys.argv):
                 else:
                     print("unknown flag in flags")
                     sys.exit(1)
-                plow_program = plow.compile(sys.argv[2], sys)
-                pemu.get_pemu_file_dependant(os, plow_program, sys.argv[2], ".".join(sys.argv[3].split(".")[:-1]), show_time, delete_waste, unstable, run)
+                pemu_program = plow.compile(sys.argv[2], sys)
+                if "--lib" in sys.argv:
+                    with open(sys.argv[3], "wb") as pemu_file:
+                        pemu_file.write(pemu_program)
+                        pemu_file.close()
+                else:
+                    pemu.get_pemu_file_dependant(os, pemu_program, sys.argv[2], ".".join(sys.argv[3].split(".")[:-1]), show_time, delete_waste, unstable, run)

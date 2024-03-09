@@ -53,9 +53,10 @@ class label:
         self.line = line
         self.sub = substitution
 
-def compile_stable(program, path, show_time, os, delete_waste, unstable, run, output_file="a"):
+def compile_stable(pemu_bytes, path, show_time, os, delete_waste, unstable, run, output_file="a", delay=True):
     path_no_extension = ".".join(path.split(".")[:-1])
     print(f"PEMU: {path_no_extension}.pemu -> {output_file}.rs ", end="")
+    program = list(pemu_bytes)
     import time
     compilation_start_time = time.time()
     rs: list[str] = []
@@ -66,7 +67,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
         return
     rs.append("#![recursion_limit=\"512\"]\n#![allow(warnings)]\nuse std::thread;")
     rs.append("fn main() {\n\tlet stack_size =")
-    rs.append("25000000")
+    rs.append("20500000")
     rs.append(";\n\tlet builder = thread::Builder::new().stack_size(stack_size);\n\tlet handle = builder.spawn(|| {")
     if show_time:
         rs.append("\tlet stime = Instant::now();\n\tlet mut registers: [u32; 27] = [0 as u32; 27];\n\tlet mut ram: Vec<u32> = Vec::new();\n\tlet mut filebufs: Vec<Vec<u8>> = Vec::new();\n\tlet mut flags: [bool; 6] = [false; 6];\n\tinstruction_1(&mut registers, &mut ram, &mut filebufs, &mut flags);\n\tlet end_time = Instant::now();\n\tprintln!(\"Code executed in {:.2?}\", end_time - stime);")
@@ -505,7 +506,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 if not program[byte_index + 3] < num_of_registers:
                     error(program, byte_index, f"Register idx {program[byte_index + 3]} not valid")                
                 generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tregisters[{program[byte_index + 3]}] = registers[{program[byte_index + 1]}] == 1 || registers[{program[byte_index + 2]}] == 1;")
+                rs.append(f"\tregisters[{program[byte_index + 3]}] = (registers[{program[byte_index + 1]}] == 1 || registers[{program[byte_index + 2]}] == 1) as u32;")
                 generate_end_of_instruction(program, byte_index, 3, instructions, rs)
                 byte_index += 4
             case 41: # or_reg_flag
@@ -517,7 +518,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 if not program[byte_index + 3] < num_of_registers:
                     error(program, byte_index, f"Register idx {program[byte_index + 3]} not valid")                
                 generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tregisters[{program[byte_index + 3]}] = registers[{program[byte_index + 1]}] == 1 || flags[{program[byte_index + 2]}] == 1;")
+                rs.append(f"\tregisters[{program[byte_index + 3]}] = (registers[{program[byte_index + 1]}] == 1 || flags[{program[byte_index + 2]}] == 1) as u32;")
                 generate_end_of_instruction(program, byte_index, 3, instructions, rs)
                 byte_index += 4
             case 42: # or_flag_flag
@@ -529,7 +530,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 if not program[byte_index + 3] < num_of_registers:
                     error(program, byte_index, f"Register idx {program[byte_index + 3]} not valid")                
                 generate_start_of_instruction(instructions, rs)
-                rs.append(f"\tregisters[{program[byte_index + 3]}] = flags[{program[byte_index + 1]}] == 1 || flags[{program[byte_index + 2]}] == 1;")
+                rs.append(f"\tregisters[{program[byte_index + 3]}] = (flags[{program[byte_index + 1]}] == 1 || flags[{program[byte_index + 2]}] == 1) as u32;")
                 generate_end_of_instruction(program, byte_index, 3, instructions, rs)
                 byte_index += 4
             case 43: # and_reg_reg
@@ -739,11 +740,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 rs.append("\t\tprintln!(\"value in the register described by the second opperand is larger than the size of ram\")")
                 rs.append("\t}")
                 rs.append(f"\tlet described: String = ram[(registers[{program[byte_index + 1]}] as usize)..(registers[{program[byte_index + 2]}] as usize)].iter().map(|&u| u as char).collect();")
-                rs.append("\tif !(file_exists(&described)) {")
-                rs.append("\t\tprintln!(\"File '{}' does not exist\", described);")
-                rs.append("\t\texit(1);")
-                rs.append("\t}")
-                rs.append("\tlet _ = execute_cmd_command(&format!(\".\\{}\", described));")
+                rs.append("\tlet _ = execute_cmd_command(&format!(\"{}\", described));")
                 generate_end_of_instruction(program, byte_index, 2, instructions, rs)
                 byte_index += 3
             case 62: # run_command_imm
@@ -761,11 +758,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 rs.append("\t\tprintln!(\"value in the register described by the second opperand is larger than the size of ram\")")
                 rs.append("\t}")
                 rs.append(f"\tlet described: String = ram[{imm}..{imm2}].iter().map(|&u| u as char).collect();")
-                rs.append("\tif !(file_exists(&described)) {")
-                rs.append("\t\tprintln!(\"File '{}' does not exist\", described);")
-                rs.append("\t\texit(1);")
-                rs.append("\t}")
-                rs.append("\tlet _ = execute_cmd_command(&format!(\".\\{}\", described));")
+                rs.append("\tlet _ = execute_cmd_command(&format!(\"{}\", described));")
                 generate_end_of_instruction(program, byte_index, 8, instructions, rs)
                 byte_index += 9
             case 63: # read_file_into_buf
@@ -844,7 +837,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 file_extension = temp.split(".")[-1]
                 if file_extension != "pemu":
                     error(program, byte_index, f"library must be of file extension 'pemu', not '{file_extension}'")
-                program.insert(end - byte_index + 1, read_binary_file())                
+                program =  program[:end + 1] + read_binary_file(temp) + program[end + 1:]
                 generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
                 byte_index += end - byte_index + 1
             case 72: # assign_label
@@ -861,7 +854,7 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 byte_index += end - byte_index + 1
             case 73: # jmp_label
                 using_jump = True
-                try:
+                try: 
                     end = program.index(0, byte_index + 1)
                 except:
                     error(program, byte_index, "end of string not found")
@@ -881,7 +874,48 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 rs.append(f"\tjump({program[byte_index + 1]}, registers, ram, filebufs, flags);")
                 generate_end_of_instruction(program, byte_index, 2, instructions, rs)
                 byte_index += 2
-            
+            case 75: # jils_reg
+                using_jump = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                rs.append("\tif flags[0] " + "{" + f"jump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);}")
+
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1
+            case 76: # jigt_reg
+                using_jump = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                rs.append("\tif flags[1] " + "{" + f"jump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);}")
+
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1
+            case 77: # jie_reg
+                using_jump = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                rs.append("\tif flags[2] " + "{" + f"jump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);}")
+
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1   
             case 78: # jine_reg
                 using_jump = True
                 try:
@@ -896,7 +930,34 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
 
                 generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
                 byte_index += end - byte_index + 1
-            
+            case 79: # jiover_reg
+                using_jump = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                rs.append("\tif flags[4] " + "{" + f"jump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);}")
+
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1
+            case 80: # jiundr_reg
+                using_jump = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                rs.append("\tif flags[5] " + "{" + f"jump(")
+                rs.append(1)
+                rs.append("".join([chr(i) for i in program[byte_index + 1:end]]))
+                rs.append(", registers, ram, filebufs, flags);}")
+
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1
             case 81: # flush
                 using_io = True
                 bounds_check(program, byte_index, 0)
@@ -904,6 +965,17 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
                 rs.append(f"\tio::stdout().flush().unwrap();")
                 generate_end_of_instruction(program, byte_index, 0, instructions, rs)
                 byte_index += 1
+            case 82: # execute a string command
+                using_commands = True
+                try:
+                    end = program.index(0, byte_index + 1)
+                except:
+                    error(program, byte_index, "end of string not found")
+                generate_start_of_instruction(instructions, rs)
+                temp = "".join([chr(v) for v in program[byte_index + 1:end]])
+                rs.append(f"\tlet _ = execute_cmd_command(&format!(\"{temp}\"));")
+                generate_end_of_instruction(program, byte_index, end - byte_index, instructions, rs)
+                byte_index += end - byte_index + 1
             case _:
                 error(program, byte_index, "instruction not yet implemented")
     if using_commands:
@@ -977,15 +1049,18 @@ def compile_stable(program, path, show_time, os, delete_waste, unstable, run, ou
         if os.system(f"rustc --emit=asm {output_file}.rs"):
             print("could not compile")
     if run:
+        if delay:
+            print("pausing for 2 seconds...")
+            time.sleep(2)
         print(F"PEMU: {output_file}.exe OUTPUT:")
         os.system(f".\\{output_file}")
 
-def get_pemu_file_independent(os, path: str, output_file: str, show_time: bool=True, delete_waste: bool=True, unstable: bool=False, run: bool=True) -> None:
+def get_pemu_file_independent(os, path: str, output_file: str, show_time: bool=True, delete_waste: bool=True, unstable: bool=False, run: bool=True, delay=True) -> None:
     program: list[int] = read_binary_file(path)
-    compile_stable(program, path, show_time, os, delete_waste, unstable, run, output_file)
+    compile_stable(program, path, show_time, os, delete_waste, unstable, run, output_file, delay)
 
-def get_pemu_file_dependant(os, program, path, output_file: str, show_time: bool=True, delete_waste: bool=True, unstable: bool=False, run: bool=True) -> None:
-    compile_stable(program, path, show_time, os, delete_waste, unstable, run, output_file)
+def get_pemu_file_dependant(os, program, path, output_file: str, show_time: bool=True, delete_waste: bool=True, unstable: bool=False, run: bool=True, delay=True) -> None:
+    compile_stable(program, path, show_time, os, delete_waste, unstable, run, output_file, delay)
 def cli():
     import sys
     import os
